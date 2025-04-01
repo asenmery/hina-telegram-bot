@@ -56,5 +56,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     else:
         await update.message.reply_text("Я ще не знаю, що сказати на це 🥺")
+        async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.lower()
+
+    if "привіт" in text:
+        await update.message.reply_text("Прив ку!")
+
+    # інші варіанти
+
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
