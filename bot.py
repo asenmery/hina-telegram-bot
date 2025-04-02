@@ -4,16 +4,13 @@ from tinydb import TinyDB, Query
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# Токен
 TOKEN = "8087039975:AAHilkGMZAIwQtglfaeApBHDpcNREqlpCNE"
 db = TinyDB("db.json")
 User = Query()
 
-# Тимчасові списки
 waiting_for_name = set()
 waiting_for_gender = set()
 
-# Кнопки
 keyboard = [
     ["Обійми", "Скажи щось миле"],
     ["Скільки зараз часу", "Котик 🐱"],
@@ -21,11 +18,37 @@ keyboard = [
 ]
 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# /start
+# ---------- КОРИСТУВАЧ ----------
+
+def get_user(user_id):
+    result = db.search(User.id == user_id)
+    return result[0] if result else None
+
+def save_user(user_id, name=None, gender=None):
+    user = get_user(user_id)
+    if user:
+        update_data = {}
+        if name:
+            update_data["name"] = name
+        if gender:
+            update_data["gender"] = gender
+        db.update(update_data, User.id == user_id)
+    else:
+        db.insert({"id": user_id, "name": name, "gender": gender, "todo": []})
+
+def gendered(name, gender):
+    if gender == "ж":
+        return name or "зайчичко"
+    elif gender == "ч":
+        return name or "зайчику"
+    else:
+        return name or "зайчик"
+
+# ---------- КОМАНДИ ----------
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Прив ку! Обери щось ⤵️", reply_markup=reply_markup)
 
-# /profile (англійська версія)
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user = get_user(user_id)
@@ -49,34 +72,29 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Gender: {gender_text}"
     )
 
-# Отримати юзера
-def get_user(user_id):
-    result = db.search(User.id == user_id)
-    return result[0] if result else None
-
-# Зберегти юзера
-def save_user(user_id, name=None, gender=None):
+async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
     user = get_user(user_id)
-    if user:
-        update_data = {}
-        if name:
-            update_data["name"] = name
-        if gender:
-            update_data["gender"] = gender
-        db.update(update_data, User.id == user_id)
-    else:
-        db.insert({"id": user_id, "name": name, "gender": gender})
+    if not user:
+        await update.message.reply_text("Я тебе ще не знаю 😿 Напиши мені щось, щоб ми познайомились!")
+        return
 
-# Звертання
-def gendered(name, gender):
-    if gender == "ж":
-        return name or "зайчичко"
-    elif gender == "ч":
-        return name or "зайчику"
+    args = context.args
+    if not args:
+        tasks = user.get("todo", [])
+        if not tasks:
+            await update.message.reply_text("У тебе ще нема справ. Додай щось: `/todo помити посуд` 🧽", parse_mode="Markdown")
+        else:
+            task_list = "\n".join([f"{i+1}. {task}" for i, task in enumerate(tasks)])
+            await update.message.reply_text(f"Ось твій список справ, {gendered(user['name'], user['gender'])} 📝:\n\n{task_list}")
     else:
-        return name or "зайчик"
+        task_text = " ".join(args)
+        user["todo"].append(task_text)
+        db.update({"todo": user["todo"]}, User.id == user_id)
+        await update.message.reply_text(f"Додала до списку: «{task_text}» ✍️")
 
-# Обробка повідомлень
+# ---------- ПОВІДОМЛЕННЯ ----------
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     text = update.message.text.strip()
@@ -86,7 +104,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_user(user_id, name=text)
         waiting_for_name.remove(user_id)
         waiting_for_gender.add(user_id)
-        await update.message.reply_text("А ти хлопець чи дівчина? 💙💖\n(напиши 'чоловік' або 'жінка')")
+        await update.message.reply_text("А ти хлопець чи дівчина? 💙💖 (напиши 'чоловік' або 'жінка')")
         return
 
     if user_id in waiting_for_gender:
@@ -132,11 +150,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"Мур? Я ще не знаю ці слова, {short} 🥺")
 
-# Запуск
+# ---------- ЗАПУСК ----------
+
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("profile", profile))  # 🌍 англомовна команда
+app.add_handler(CommandHandler("profile", profile))
+app.add_handler(CommandHandler("todo", todo))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-print("✨ Хіна-Ботик з командою /profile запущено 🐾")
+print("✨ Хіна-Ботик із TODO-завданнями запущено 🐾")
 app.run_polling()
