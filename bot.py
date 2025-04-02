@@ -80,6 +80,29 @@ async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.update({"todo": user["todo"]}, User.id == user_id)
         await update.message.reply_text(f"Додала до списку: «{task_text}» ✍️")
 
+# ---------- DONE ----------
+async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user = get_user(user_id)
+
+    if not user:
+        await update.message.reply_text("Я тебе ще не знаю 😿 Напиши мені щось!")
+        return
+
+    args = context.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_text("Вкажи номер справи, яку завершено, наприклад: `/done 1` ✅", parse_mode="Markdown")
+        return
+
+    index = int(args[0]) - 1
+    tasks = user.get("todo", [])
+    if 0 <= index < len(tasks):
+        completed = tasks.pop(index)
+        db.update({"todo": tasks}, User.id == user_id)
+        await update.message.reply_text(f"Справу «{completed['text']}» виконано! ✅")
+    else:
+        await update.message.reply_text("Номер справи недійсний 😿")
+
 # ---------- ПОВІДОМЛЕННЯ ----------
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -148,9 +171,9 @@ def clear_all_todos():
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("todo", todo))
+app.add_handler(CommandHandler("done", done))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-# Планувальник для щоденного очищення
 scheduler = BackgroundScheduler(timezone="Europe/Kyiv")
 scheduler.add_job(clear_all_todos, "cron", hour=0, minute=0)
 scheduler.start()
