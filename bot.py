@@ -62,8 +62,11 @@ async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not tasks:
             await update.message.reply_text("У тебе ще нема справ. Додай щось: `/todo купити каву` 🛌", parse_mode="Markdown")
         else:
-            task_list = "\n".join([f"{i+1}. {task['text']} (додано: {task['date']})" for i, task in enumerate(tasks)])
-            await update.message.reply_text(f"Ось твій список справ, {gendered(user['name'], user['gender'])} 📓:\n\n{task_list}")
+            task_list = "\n".join([f"{i+1}. ⬜ {task['text']} \(додано: {task['date']}\)" for i, task in enumerate(tasks)])
+            await update.message.reply_text(
+                f"*📝 Список справ, {gendered(user['name'], user['gender'])}:*\n\n{task_list}",
+                parse_mode="MarkdownV2"
+            )
     elif args[0] == "del" and len(args) > 1 and args[1].isdigit():
         index = int(args[1]) - 1
         tasks = user.get("todo", [])
@@ -113,7 +116,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_user(user_id, name=text)
         waiting_for_name.remove(user_id)
         waiting_for_gender.add(user_id)
-        await update.message.reply_text("А ти хлопець чи дівчина? 💙💕 (напиши 'чоловік' або 'жінка')")
+        await update.message.reply_text("А ти хлопець чи дівчина? 💙💖 (напиши 'чоловік' або 'жінка')")
         return
 
     if user_id in waiting_for_gender:
