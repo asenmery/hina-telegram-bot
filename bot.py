@@ -3,6 +3,7 @@ import pytz
 from tinydb import TinyDB, Query
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from apscheduler.schedulers.background import BackgroundScheduler
 
 TOKEN = "8087039975:AAHilkGMZAIwQtglfaeApBHDpcNREqlpCNE"
 db = TinyDB("db.json")
@@ -19,7 +20,6 @@ keyboard = [
 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # ---------- КОРИСТУВАЧ ----------
-
 def get_user(user_id):
     result = db.search(User.id == user_id)
     return result[0] if result else None
@@ -44,34 +44,7 @@ def gendered(name, gender):
     else:
         return name or "зайчик"
 
-# ---------- КОМАНДИ ----------
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Прив ку! Обери щось ⤵️", reply_markup=reply_markup)
-
-async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    user = get_user(user_id)
-
-    if not user:
-        await update.message.reply_text("I don't know you yet 😿 Say something to start!")
-        return
-
-    name = user.get("name", "unknown")
-    gender = user.get("gender", "unknown")
-    if gender == "ж":
-        gender_text = "female"
-    elif gender == "ч":
-        gender_text = "male"
-    else:
-        gender_text = "not specified"
-
-    await update.message.reply_text(
-        f"Here is your profile, {gendered(name, gender)} 🪞\n"
-        f"Name: {name}\n"
-        f"Gender: {gender_text}"
-    )
-
+# ---------- TODO ----------
 async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user = get_user(user_id)
@@ -83,18 +56,27 @@ async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not args:
         tasks = user.get("todo", [])
         if not tasks:
-            await update.message.reply_text("У тебе ще нема справ. Додай щось: `/todo помити посуд` 🧽", parse_mode="Markdown")
+            await update.message.reply_text("У тебе ще нема справ. Додай щось: `/todo купити каву` 🛌", parse_mode="Markdown")
         else:
-            task_list = "\n".join([f"{i+1}. {task}" for i, task in enumerate(tasks)])
-            await update.message.reply_text(f"Ось твій список справ, {gendered(user['name'], user['gender'])} 📝:\n\n{task_list}")
+            task_list = "\n".join([f"{i+1}. {task['text']} (додано: {task['date']})" for i, task in enumerate(tasks)])
+            await update.message.reply_text(f"Ось твій список справ, {gendered(user['name'], user['gender'])} 📓:\n\n{task_list}")
+    elif args[0] == "del" and len(args) > 1 and args[1].isdigit():
+        index = int(args[1]) - 1
+        tasks = user.get("todo", [])
+        if 0 <= index < len(tasks):
+            removed = tasks.pop(index)
+            db.update({"todo": tasks}, User.id == user_id)
+            await update.message.reply_text(f"Видалила завдання: «{removed['text']}» 🚮")
+        else:
+            await update.message.reply_text("Номер завдання недійсний 😞")
     else:
         task_text = " ".join(args)
-        user["todo"].append(task_text)
+        today = datetime.datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%d.%m.%Y")
+        user["todo"].append({"text": task_text, "date": today})
         db.update({"todo": user["todo"]}, User.id == user_id)
         await update.message.reply_text(f"Додала до списку: «{task_text}» ✍️")
 
 # ---------- ПОВІДОМЛЕННЯ ----------
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     text = update.message.text.strip()
@@ -104,7 +86,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_user(user_id, name=text)
         waiting_for_name.remove(user_id)
         waiting_for_gender.add(user_id)
-        await update.message.reply_text("А ти хлопець чи дівчина? 💙💖 (напиши 'чоловік' або 'жінка')")
+        await update.message.reply_text("А ти хлопець чи дівчина? 💙💕 (напиши 'чоловік' або 'жінка')")
         return
 
     if user_id in waiting_for_gender:
@@ -150,13 +132,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"Мур? Я ще не знаю ці слова, {short} 🥺")
 
-# ---------- ЗАПУСК ----------
+# ---------- ЩОДЕННЕ ОЧИЩЕННЯ ----------
+def clear_all_todos():
+    users = db.all()
+    for user in users:
+        if "todo" in user:
+            db.update({"todo": []}, User.id == user["id"])
+    print("Щоденне очищення TODO виконано")
 
+# ---------- ЗАПУСК ----------
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("profile", profile))
 app.add_handler(CommandHandler("todo", todo))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-print("✨ Хіна-Ботик із TODO-завданнями запущено 🐾")
+# Планувальник для щоденного очищення
+scheduler = BackgroundScheduler(timezone="Europe/Kyiv")
+scheduler.add_job(clear_all_todos, "cron", hour=0, minute=0)
+scheduler.start()
+
+print("✨ Хіна-Ботик з розумним TODO запущено 🐾")
 app.run_polling()
