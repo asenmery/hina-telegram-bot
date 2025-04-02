@@ -1,30 +1,15 @@
 import datetime
 import pytz
-import json
-import os
+from tinydb import TinyDB, Query
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# 🔐 Твій токен (тільки не публікуй публічно 😿)
 TOKEN = "8087039975:AAHilkGMZAIwQtglfaeApBHDpcNREqlpCNE"
-USERS_FILE = "users.json"
-
-# Завантаження імен
-def load_users():
-    if not os.path.exists(USERS_FILE):
-        return {}
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-# Збереження імен
-def save_users(users):
-    with open(USERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(users, f, ensure_ascii=False, indent=2)
-
-users = load_users()
+db = TinyDB("db.json")
+User = Query()
 waiting_for_name = set()
 
-# /start — привітання + кнопочки
+# /start — кнопки + вітання
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         ["Обійми", "Скажи щось миле"],
@@ -34,30 +19,39 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("Прив ку! Обери щось ⤵️", reply_markup=reply_markup)
 
+# Отримати ім’я з бази
+def get_name(user_id):
+    result = db.search(User.id == user_id)
+    if result:
+        return result[0]["name"]
+    return None
+
+# Записати ім’я в базу
+def save_name(user_id, name):
+    if db.search(User.id == user_id):
+        db.update({"name": name}, User.id == user_id)
+    else:
+        db.insert({"id": user_id, "name": name})
+
 # Обробка повідомлень
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.message.from_user.id)
+    user_id = update.message.from_user.id
     text = update.message.text.strip()
     lower_text = text.lower()
 
-    # Якщо новий користувач
-    if user_id not in users and user_id not in waiting_for_name:
-        waiting_for_name.add(user_id)
-        await update.message.reply_text("Прив ку, я тебе ще не знаю! Як тебе називати? 💬")
-        return
-
-    # Якщо чекаємо імʼя
     if user_id in waiting_for_name:
-        users[user_id] = text
-        save_users(users)
+        save_name(user_id, text)
         waiting_for_name.remove(user_id)
         await update.message.reply_text(f"Зберегла! Тепер я тебе зватиму: {text} 🌸")
         return
 
-    # Імʼя з бази
-    name = users.get(user_id, "моя зіронька ✨")
+    name = get_name(user_id)
 
-    # Реакції
+    if not name:
+        waiting_for_name.add(user_id)
+        await update.message.reply_text("Прив ку, я тебе ще не знаю! Як тебе називати? 💬")
+        return
+
     if "обійми" in lower_text:
         await update.message.reply_text(f"Добре, {name}, ловиии обійми! 🤗")
 
@@ -83,5 +77,5 @@ app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-print("🐾 Хіна-Ботик запущено з любовʼю")
+print("Хіна-Ботик з TinyDB 💾 запущено 🐾")
 app.run_polling()
