@@ -4,7 +4,7 @@ from tinydb import TinyDB, Query
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# 🔐 Твій токен (будь обережна з ним)
+# 🔐 Токен
 TOKEN = "8087039975:AAHilkGMZAIwQtglfaeApBHDpcNREqlpCNE"
 db = TinyDB("db.json")
 User = Query()
@@ -24,6 +24,30 @@ reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Прив ку! Обери щось ⤵️", reply_markup=reply_markup)
+
+# /профіль
+async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user = get_user(user_id)
+
+    if not user:
+        await update.message.reply_text("Я тебе ще не знаю 😿 Напиши мені щось, щоб ми познайомились!")
+        return
+
+    name = user.get("name", "незнайомець")
+    gender = user.get("gender", "не вказано")
+    if gender == "ж":
+        gender_text = "жінка"
+    elif gender == "ч":
+        gender_text = "чоловік"
+    else:
+        gender_text = "не вказано"
+
+    await update.message.reply_text(
+        f"Ось твій профіль, {gendered(name, gender)} 🪞\n"
+        f"Імʼя: {name}\n"
+        f"Стать: {gender_text}"
+    )
 
 # Отримати користувача
 def get_user(user_id):
@@ -113,10 +137,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"Мур? Я ще не знаю ці слова, {short} 🥺")
 
-# Запуск бота
+# Запуск
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("профіль", profile))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-print("✨ Хіна-Ботик з памʼяттю, ім’ям і гендером запущено 🐾")
+print("✨ Хіна-Ботик з командою /профіль запущено 🐾")
 app.run_polling()
