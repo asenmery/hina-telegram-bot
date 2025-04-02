@@ -1,14 +1,16 @@
+import datetime
+import pytz
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# 🔐 Якщо не хочеш через змінну середовища, просто встав токен напряму:
+# 🔐 Твій токен прямо тут (тільки не світити публічно!)
 TOKEN = "8087039975:AAHilkGMZAIwQtglfaeApBHDpcNREqlpCNE"
 
 # /start команда
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Прив ку! Я бот Хіни 🌸")
 
-# реакції на звичайні слова
+# Обробка звичайних повідомлень
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
 
@@ -33,13 +35,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif "котик" in text:
         await update.message.reply_text("мяу~ 🐱 Ти теж котик!")
 
+    elif "скільки часу" in text or "котра година" in text or "який час" in text:
+        kyiv_time = datetime.datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%H:%M")
+        await update.message.reply_text(f"Зараз в Україні: {kyiv_time} 🕰️")
+
     else:
         await update.message.reply_text("Я ще не знаю, що сказати на це 🥺")
 
-# запуск бота
+# Створення бота
 app = ApplicationBuilder().token(TOKEN).build()
 
-# додавання обробників
+# Додаємо обробники
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
