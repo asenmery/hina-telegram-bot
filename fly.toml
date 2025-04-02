@@ -1,1 +1,5 @@
 app = "hina-telegram-bot"
+[mounts]
+  source = "data_volume"
+  destination = "/data"
+

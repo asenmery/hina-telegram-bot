@@ -1,4 +1,4 @@
-apscheduler
-python-telegram-bot==20.8
-pytz
+python-telegram-bot==20.7
 tinydb
+pytz
+apscheduler

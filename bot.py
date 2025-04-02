@@ -7,7 +7,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 from apscheduler.schedulers.background import BackgroundScheduler
 
 TOKEN = "8087039975:AAHilkGMZAIwQtglfaeApBHDpcNREqlpCNE"
-db = TinyDB("db.json")
+db = TinyDB("/data/db.json")
 User = Query()
 
 waiting_for_name = set()
