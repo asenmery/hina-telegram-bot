@@ -4,7 +4,7 @@ from tinydb import TinyDB, Query
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# 🔐 Токен
+# Токен
 TOKEN = "8087039975:AAHilkGMZAIwQtglfaeApBHDpcNREqlpCNE"
 db = TinyDB("db.json")
 User = Query()
@@ -13,7 +13,7 @@ User = Query()
 waiting_for_name = set()
 waiting_for_gender = set()
 
-# Кнопочки
+# Кнопки
 keyboard = [
     ["Обійми", "Скажи щось миле"],
     ["Скільки зараз часу", "Котик 🐱"],
@@ -25,36 +25,36 @@ reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Прив ку! Обери щось ⤵️", reply_markup=reply_markup)
 
-# /профіль
+# /profile (англійська версія)
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     user = get_user(user_id)
 
     if not user:
-        await update.message.reply_text("Я тебе ще не знаю 😿 Напиши мені щось, щоб ми познайомились!")
+        await update.message.reply_text("I don't know you yet 😿 Say something to start!")
         return
 
-    name = user.get("name", "незнайомець")
-    gender = user.get("gender", "не вказано")
+    name = user.get("name", "unknown")
+    gender = user.get("gender", "unknown")
     if gender == "ж":
-        gender_text = "жінка"
+        gender_text = "female"
     elif gender == "ч":
-        gender_text = "чоловік"
+        gender_text = "male"
     else:
-        gender_text = "не вказано"
+        gender_text = "not specified"
 
     await update.message.reply_text(
-        f"Ось твій профіль, {gendered(name, gender)} 🪞\n"
-        f"Імʼя: {name}\n"
-        f"Стать: {gender_text}"
+        f"Here is your profile, {gendered(name, gender)} 🪞\n"
+        f"Name: {name}\n"
+        f"Gender: {gender_text}"
     )
 
-# Отримати користувача
+# Отримати юзера
 def get_user(user_id):
     result = db.search(User.id == user_id)
     return result[0] if result else None
 
-# Зберегти користувача
+# Зберегти юзера
 def save_user(user_id, name=None, gender=None):
     user = get_user(user_id)
     if user:
@@ -67,7 +67,7 @@ def save_user(user_id, name=None, gender=None):
     else:
         db.insert({"id": user_id, "name": name, "gender": gender})
 
-# Стиль звертання
+# Звертання
 def gendered(name, gender):
     if gender == "ж":
         return name or "зайчичко"
@@ -82,7 +82,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     lower_text = text.lower()
 
-    # Якщо чекаємо імʼя
     if user_id in waiting_for_name:
         save_user(user_id, name=text)
         waiting_for_name.remove(user_id)
@@ -90,7 +89,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("А ти хлопець чи дівчина? 💙💖\n(напиши 'чоловік' або 'жінка')")
         return
 
-    # Якщо чекаємо стать
     if user_id in waiting_for_gender:
         if "ж" in lower_text:
             save_user(user_id, gender="ж")
@@ -104,19 +102,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Напиши, будь ласка, 'жінка' або 'чоловік' 🌼")
         return
 
-    # Дані користувача
     user = get_user(user_id)
     name = user["name"] if user else None
     gender = user["gender"] if user else None
     short = gendered(name, gender)
 
-    # Якщо ще не зареєстрований
     if not name:
         waiting_for_name.add(user_id)
         await update.message.reply_text("Прив ку, я тебе ще не знаю! Як тебе називати? 💬")
         return
 
-    # Реакції
     if "обійми" in lower_text:
         await update.message.reply_text(f"Добре, {short}, ловиии обійми! 🤗")
 
@@ -140,8 +135,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Запуск
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("профіль", profile))
+app.add_handler(CommandHandler("profile", profile))  # 🌍 англомовна команда
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-print("✨ Хіна-Ботик з командою /профіль запущено 🐾")
+print("✨ Хіна-Ботик з командою /profile запущено 🐾")
 app.run_polling()
