@@ -1,5 +1,11 @@
 app = "hina-telegram-bot"
+
+[build]
+  dockerfile = "Dockerfile"
+
 [mounts]
   source = "data_volume"
   destination = "/data"
 
+[env]
+  PYTHONUNBUFFERED = "TRUE"

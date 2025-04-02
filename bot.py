@@ -66,13 +66,32 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Нагадати випити водички: `/hydrate` або автоматично 💧\n\n"
         "📋 *Команди:*\n"
         "/start — показати кнопки\n"
-        "/todo — список справ\n"
-        "/done — відмітити справу виконаною\n"
-        "/hydrate — випити води 💧\n"
+        "/status — перевірити, чи бот живий\n"
         "/profile — профіль\n"
+        "/hydrate — випити води 💧\n"
+        "/done — відмітити справу виконаною\n"
         "/help — ця довідка\n"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
+
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("✅ Я живий і мурчу стабільно! 🐾")
+
+async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user = get_user(user_id)
+    if user:
+        name = user.get("name", "(не вказано)")
+        gender = user.get("gender", "(не вказано)")
+        await update.message.reply_text(f"👤 Профіль:\nІм'я: {name}\nСтать: {gender}")
+    else:
+        await update.message.reply_text("Я тебе ще не знаю 😿 Напиши 'Запиши моє ім'я'")
+
+async def hydrate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("💧 Не забудь попити водички, моє серденько!")
+
+async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("✅ Уявімо, що справа виконана! (тимчасово)")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -83,7 +102,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_user(user_id, name=text)
         waiting_for_name.remove(user_id)
         waiting_for_gender.add(user_id)
-        await update.message.reply_text("А ти хлопець чи дівчина? 💙💕 (напиши 'чоловік' або 'жінка')")
+        await update.message.reply_text("А ти хлопець чи дівчина? 💙💖 (напиши 'чоловік' або 'жінка')")
         return
 
     if user_id in waiting_for_gender:
@@ -115,7 +134,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Ти {gendered_phrase(gender, 'чудова', 'чудовий')}, {short}. Я завжди поруч 💗")
     elif "час" in lower_text or "година" in lower_text:
         kyiv_time = datetime.datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%H:%M")
-        await update.message.reply_text(f"{short}, зараз в Україні: {kyiv_time} 🕰️")
+        await update.message.reply_text(f"{short}, зараз в Україні: {kyiv_time} 🕐")
     elif "котик" in lower_text:
         await update.message.reply_animation("https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif")
     elif "запиши" in lower_text or "ім'я" in lower_text:
@@ -124,21 +143,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"Мур? Я ще не знаю ці слова, {short} 🥺")
 
-# (інші функції залишаються без змін...)
-
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("help", help_command))
-app.add_handler(CommandHandler("todo", todo))
-app.add_handler(CommandHandler("done", done))
-app.add_handler(CommandHandler("hydrate", hydrate))
+app.add_handler(CommandHandler("status", status))
 app.add_handler(CommandHandler("profile", profile))
+app.add_handler(CommandHandler("hydrate", hydrate))
+app.add_handler(CommandHandler("done", done))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
 scheduler = BackgroundScheduler(timezone="Europe/Kyiv")
-scheduler.add_job(clear_all_todos, "cron", hour=0, minute=0)
-scheduler.add_job(lambda: asyncio.create_task(send_hydrate_reminder(app)), "cron", hour="10,14,18")
+scheduler.add_job(lambda: None, "cron", hour=0, minute=0)  # заглушка, бо немає todo
 scheduler.start()
 
-print("✨ Хіна-Ботик запущено з усіма функціями та нагадуванням пити воду 🐾")
+print("✨ Хіна-Ботик запущено з усіма функціями та муркотінням 🐾")
 app.run_polling()
