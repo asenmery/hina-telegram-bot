@@ -1,4 +1,3 @@
-# Хіна-Ботик з виправленим виводом TODO-списку
 import datetime
 import pytz
 from tinydb import TinyDB, Query
@@ -14,9 +13,8 @@ waiting_for_name = set()
 waiting_for_gender = set()
 
 keyboard = [
-    ["Обійми", "Скажи щось миле"],
-    ["Скільки зараз часу", "Котик 🐱"],
-    ["Запиши моє ім'я"]
+    ["🆕 Нова справа", "📋 Сьогоднішні справи"],
+    ["🧸 Обійми", "😺 Котик"]
 ]
 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -81,7 +79,7 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gender = user.get("gender", "(не вказано)")
         await update.message.reply_text(f"👤 Профіль:\nІм'я: {name}\nСтать: {gender}")
     else:
-        await update.message.reply_text("Я тебе ще не знаю 😿 Напиши 'Запиши моє ім'я'")
+        await update.message.reply_text("Я тебе ще не знаю 😿 Напиши 'Запиши моє імʼя'")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Я живий і мурчу стабільно! 🐾")
@@ -126,7 +124,6 @@ async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             db.update({"todo": user["todo"]}, User.id == user["id"])
             return await update.message.reply_text(f"➕ Додано на {due}: {text}")
 
-        # Якщо це просто дата без задачі — показати список
         due = parse_date(query)
         if due:
             tasks = [t for t in user["todo"] if t["due"] == due]
@@ -138,77 +135,4 @@ async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 msg += f"{i+1}. {checkbox} {t['text']}\n"
             return await update.message.reply_text(msg)
 
-    # Вивести завдання на сьогодні за замовчуванням
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    tasks = [t for t in user["todo"] if t["due"] == today]
-    if not tasks:
-        return await update.message.reply_text("Сьогодні справ немає ✨")
-    msg = "📋 Сьогоднішні справи:\n"
-    for i, t in enumerate(tasks):
-        checkbox = "[x]" if t["done"] else "[ ]"
-        msg += f"{i+1}. {checkbox} {t['text']}\n"
-    await update.message.reply_text(msg)
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.message.from_user.id
-    text = update.message.text.strip()
-    lower = text.lower()
-    user = get_user(uid)
-
-    if uid in waiting_for_name:
-        save_user(uid, name=text)
-        waiting_for_name.remove(uid)
-        waiting_for_gender.add(uid)
-        return await update.message.reply_text("А ти хлопець чи дівчина? 💙💖")
-
-    if uid in waiting_for_gender:
-        if "ж" in lower: save_user(uid, gender="ж")
-        elif "ч" in lower: save_user(uid, gender="ч")
-        else: return await update.message.reply_text("Напиши 'жінка' або 'чоловік' 🌼")
-        waiting_for_gender.remove(uid)
-        return await update.message.reply_text("Тепер я тебе памʼятаю!")
-
-    name = user.get("name") if user else None
-    gender = user.get("gender") if user else None
-    short = gendered(name, gender)
-
-    if "обійми" in lower:
-        return await update.message.reply_text(f"Добре, {short}, ловиии обійми! 🤗")
-    elif "скажи" in lower:
-        return await update.message.reply_text(f"Ти {gendered_phrase(gender, 'чудова', 'чудовий')}, {short} 💗")
-    elif "час" in lower:
-        time = datetime.datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%H:%M")
-        return await update.message.reply_text(f"{short}, зараз в Україні: {time} 🕐")
-    elif "котик" in lower:
-        return await update.message.reply_animation("https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif")
-    elif "ім'я" in lower:
-        waiting_for_name.add(uid)
-        return await update.message.reply_text("Як тебе називати? 💬")
-    else:
-        return await update.message.reply_text(f"Мур? Я ще не знаю ці слова, {short} 🥺")
-
-def morning_reminder():
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    for user in db.all():
-        tasks = [t for t in user.get("todo", []) if t["due"] == today and not t["done"]]
-        if tasks:
-            app.bot.send_message(chat_id=user["id"], text="🌞 Добрий ранок! Ось твої справи:")
-            for i, task in enumerate(tasks):
-                app.bot.send_message(chat_id=user["id"], text=f"{i+1}. {task['text']}")
-
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("help", help_command))
-app.add_handler(CommandHandler("profile", profile))
-app.add_handler(CommandHandler("status", status))
-app.add_handler(CommandHandler("hydrate", hydrate))
-app.add_handler(CommandHandler("done", done))
-app.add_handler(CommandHandler("todo", todo))
-app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-
-scheduler = BackgroundScheduler(timezone="Europe/Kyiv")
-scheduler.add_job(morning_reminder, "cron", hour=9, minute=0)
-scheduler.start()
-
-print("✨ Хіна-Ботик оновлено — список справ тепер точно працює 🐾")
-app.run_polling()
+    today = datetime
