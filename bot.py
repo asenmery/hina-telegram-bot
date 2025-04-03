@@ -44,7 +44,10 @@ def gendered_phrase(gender, feminine, masculine, neutral="чудова(ий)"):
 
 def parse_date(text):
     today = datetime.date.today()
-    weekdays = {"понеділок": 0, "вівторок": 1, "середа": 2, "четвер": 3, "пʼятниця": 4, "субота": 5, "неділя": 6}
+    weekdays = {
+        "понеділок": 0, "вівторок": 1, "середа": 2,
+        "четвер": 3, "пʼятниця": 4, "субота": 5, "неділя": 6
+    }
     text = text.strip().lower()
     if text == "сьогодні": return today.strftime("%Y-%m-%d")
     elif text == "завтра": return (today + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
@@ -61,16 +64,8 @@ def parse_date(text):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Прив ку! Обери щось ⤵️", reply_markup=reply_markup)
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "💖 *Прив ку!* Я Хіна-Ботик — твоя мʼяка цифрова помічниця 🌸\n\n"
-        "Я вмію:\n"
-        "• Вести список справ: `/todo купити чай | завтра`\n"
-        "• Показати справи: `/todo`, `/todo завтра`, `/todo 2025-04-03`\n"
-        "• Видалити: `/todo del 1`\n"
-        "• Відмітити: `/done 1`\n"
-        "• Пити воду: `/hydrate`\n",
-        parse_mode="Markdown")
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("✅ Я живий і мурчу стабільно! 🐾")
 
 async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = get_user(update.message.from_user.id)
@@ -80,9 +75,6 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"👤 Профіль:\nІм'я: {name}\nСтать: {gender}")
     else:
         await update.message.reply_text("Я тебе ще не знаю 😿 Напиши 'Запиши моє імʼя'")
-
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Я живий і мурчу стабільно! 🐾")
 
 async def hydrate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("💧 Не забудь попити водички, моє серденько!")
@@ -126,13 +118,77 @@ async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         due = parse_date(query)
         if due:
-            tasks = [t for t in user["todo"] if t["due"] == due]
+            tasks = [t for t in user["todo"] if t.get("due") == due]
             if not tasks:
                 return await update.message.reply_text(f"На {due} у тебе нічого немає ✨")
             msg = f"📅 Завдання на {due}:\n"
             for i, t in enumerate(tasks):
-                checkbox = "[x]" if t["done"] else "[ ]"
+                checkbox = "[x]" if t.get("done") else "[ ]"
                 msg += f"{i+1}. {checkbox} {t['text']}\n"
             return await update.message.reply_text(msg)
 
-    today = datetime
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    tasks = [t for t in user["todo"] if t.get("due") == today]
+
+    if not tasks:
+        return await update.message.reply_text("На сьогодні у тебе нічого немає ✨")
+
+    msg = "📋 Справи на сьогодні:\n"
+    for i, t in enumerate(tasks):
+        checkbox = "✅" if t.get("done") else "⬜"
+        msg += f"{i+1}. {checkbox} {t['text']}\n"
+    await update.message.reply_text(msg)
+
+async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.lower()
+    user_id = update.message.from_user.id
+    user = get_user(user_id)
+
+    if user_id in waiting_for_name:
+        save_user(user_id, name=text)
+        waiting_for_name.discard(user_id)
+        await update.message.reply_text(f"Мур, тепер я знаю що тебе звати {text} 🐾")
+        return
+
+    if user_id in waiting_for_gender:
+        if text in ["ж", "ч"]:
+            save_user(user_id, gender=text)
+            waiting_for_gender.discard(user_id)
+            await update.message.reply_text("Збережено! 🌟")
+        else:
+            await update.message.reply_text("Введи 'ж' або 'ч'")
+        return
+
+    if "обійми" in text or "обіймашки" in text:
+        return await update.message.reply_text("🤗 Мурчальні обійми для тебе!")
+
+    if "котик" in text:
+        return await update.message.reply_text("мяу~ 🐱 Ти теж котик!")
+
+    if "нов" in text or "справа" in text:
+        return await update.message.reply_text("📝 Додай через /todo впиши справу")
+
+    if "сьогоднішн" in text:
+        return await todo(update, context)
+
+    if "запиши моє ім" in text:
+        waiting_for_name.add(user_id)
+        return await update.message.reply_text("Як тебе звати? 🌸")
+
+    if "стать" in text or "хлопець" in text or "дівчинка" in text:
+        waiting_for_gender.add(user_id)
+        return await update.message.reply_text("Напиши 'ж' чи 'ч' 🧠")
+
+    await update.message.reply_text("Я тебе чую, але ще не розумію 🐣")
+
+app = ApplicationBuilder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("status", status))
+app.add_handler(CommandHandler("profile", profile))
+app.add_handler(CommandHandler("todo", todo))
+app.add_handler(CommandHandler("done", done))
+app.add_handler(CommandHandler("hydrate", hydrate))
+app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), message_handler))
+
+print("✨ Хіна-Ботик запущено з повним плануванням 🗓")
+app.run_polling()
