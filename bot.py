@@ -1,4 +1,4 @@
-# Хіна-Ботик з повним TODO-функціоналом, нагадуваннями і профілем
+# Хіна-Ботик з виправленим виводом TODO-списку
 import datetime
 import pytz
 from tinydb import TinyDB, Query
@@ -116,19 +116,29 @@ async def todo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return await update.message.reply_text("Помилка видалення 😿")
 
     if context.args:
-        joined = " ".join(context.args)
-        if "|" in joined:
-            text, date_text = map(str.strip, joined.split("|", 1))
+        query = " ".join(context.args)
+        if "|" in query:
+            text, date_text = map(str.strip, query.split("|", 1))
             due = parse_date(date_text)
             if not due:
                 return await update.message.reply_text("Невідома дата. Приклад: /todo купити чай | завтра")
-        else:
-            text = joined
-            due = datetime.date.today().strftime("%Y-%m-%d")
-        user["todo"].append({"text": text, "due": due, "done": False})
-        db.update({"todo": user["todo"]}, User.id == user["id"])
-        return await update.message.reply_text(f"➕ Додано на {due}: {text}")
+            user["todo"].append({"text": text, "due": due, "done": False})
+            db.update({"todo": user["todo"]}, User.id == user["id"])
+            return await update.message.reply_text(f"➕ Додано на {due}: {text}")
 
+        # Якщо це просто дата без задачі — показати список
+        due = parse_date(query)
+        if due:
+            tasks = [t for t in user["todo"] if t["due"] == due]
+            if not tasks:
+                return await update.message.reply_text(f"На {due} у тебе нічого немає ✨")
+            msg = f"📅 Завдання на {due}:\n"
+            for i, t in enumerate(tasks):
+                checkbox = "[x]" if t["done"] else "[ ]"
+                msg += f"{i+1}. {checkbox} {t['text']}\n"
+            return await update.message.reply_text(msg)
+
+    # Вивести завдання на сьогодні за замовчуванням
     today = datetime.date.today().strftime("%Y-%m-%d")
     tasks = [t for t in user["todo"] if t["due"] == today]
     if not tasks:
@@ -200,5 +210,5 @@ scheduler = BackgroundScheduler(timezone="Europe/Kyiv")
 scheduler.add_job(morning_reminder, "cron", hour=9, minute=0)
 scheduler.start()
 
-print("✨ Хіна-Ботик запущено з повним плануванням 🗓")
+print("✨ Хіна-Ботик оновлено — список справ тепер точно працює 🐾")
 app.run_polling()

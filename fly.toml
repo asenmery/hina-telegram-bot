@@ -1,3 +1,5 @@
+app = "hina-telegram-bot"
+
 [env]
   PORT = "8080"
 
