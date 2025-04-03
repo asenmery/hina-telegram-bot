@@ -1,11 +1,6 @@
-app = "hina-telegram-bot"
-
-[build]
-  dockerfile = "Dockerfile"
+[env]
+  PORT = "8080"
 
 [mounts]
   source = "data_volume"
   destination = "/data"
-
-[env]
-  PYTHONUNBUFFERED = "TRUE"
